@@ -98,7 +98,7 @@ SCENARIO_CONFIGS: Dict[str, ScenarioConfig] = {
         unavailability_rate=0.30,
         min_coverage={0: 4, 1: 3, 2: 3},   # morning=4, afternoon=3, night=3
         max_coverage=7,
-        max_shifts_per_week=8,              # 14-day window, so higher cap
+        max_shifts_per_week=8,              # cap per rolling 7-day window
         seed=99,
     ),
 }

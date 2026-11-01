@@ -77,12 +77,12 @@ def solve(scenario: Scenario, time_limit_s: float = 30.0,
         for d in range(D - 1):
             model.Add(x[(w, d, S-1)] + x[(w, d+1, 0)] <= 1)
 
-    # C5 — Max shifts per window
+    # C5 — Max shifts in every rolling 7-day window (days start..start+6)
     window = min(7, D)
     for w in range(W):
-        for start in range(0, D, window):
-            end = min(start + window, D)
-            model.Add(sum(x[(w, d, s)] for d in range(start, end) for s in range(S)) <= cfg.max_shifts_per_week)
+        for start in range(0, D - window + 1):
+            model.Add(sum(x[(w, d, s)] for d in range(start, start + window) for s in range(S))
+                      <= cfg.max_shifts_per_week)
 
     # Per-worker IntVars for AddMaxEquality/AddMinEquality
     assigned_vars = []

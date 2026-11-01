@@ -1,5 +1,7 @@
 # Planning and Scheduling Optimisation — OR-Tools CP-SAT
 
+[![tests](https://github.com/ViswanathDas/planning-scheduling-opt/actions/workflows/tests.yml/badge.svg)](https://github.com/ViswanathDas/planning-scheduling-opt/actions/workflows/tests.yml)
+
 Workforce shift scheduling solved with Google OR-Tools CP-SAT.
 Compares a **greedy heuristic baseline** against a **constraint-programming solver**
 across three generated stress scenarios.
@@ -15,7 +17,7 @@ Assign workers to shifts over a planning horizon to meet operational requirement
 - **C2** Maximum coverage: each shift slot has <= N_max workers
 - **C3** Worker availability: workers can only be assigned to available slots
 - **C4** Rest requirement: no worker assigned to a night shift and a morning shift on the following day
-- **C5** Maximum shifts per 7-day window
+- **C5** Maximum shifts in every rolling 7-day window (an earlier version checked fixed calendar weeks only; fixed in Nov 2026, results unchanged)
 
 **Objective (minimise):**
 ```
@@ -29,18 +31,21 @@ Assign workers to shifts over a planning horizon to meet operational requirement
 
 ## Results
 
-Three scenarios were generated with fixed random seeds (fully reproducible):
+Three scenarios were generated with fixed random seeds (reproducible; run `python notebooks/run_comparison.py` or `pytest tests/`):
 
-| Scenario | Workers | Days | Unavailability | Greedy C4 violations | CP-SAT C4 violations | Workload sigma (greedy) | Workload sigma (CP-SAT) | Solve time |
+| Scenario | Workers | Days | Unavailability | Greedy C4 violations | CP-SAT C4 violations | Workload sigma (greedy) | Workload sigma (CP-SAT) | CP-SAT status and time |
 |----------|---------|------|----------------|---------------------|---------------------|------------------------|------------------------|------------|
-| A — Baseline | 12 | 7 | 20% | 3 | **0** | 0.28 | 0.28 | ~10s |
-| B — Tight availability | 12 | 7 | 40% | 3 | **0** | 0.49 | 0.86 | **1.5s** |
-| C — Hard / Scaled | 20 | 14 | 30% | 8 | **0** | 0.32 | **0.00** | **271ms** |
+| A — Baseline | 12 | 7 | 20% | 3 | **0** | 0.28 | 0.28 | optimal, about 23 s |
+| B — Tight availability | 12 | 7 | 40% | 3 | **0** | 0.49 | 0.76 | optimal, about 0.4 s |
+| C — Hard / Scaled | 20 | 14 | 30% | 8 | **0** | 0.32 | **0.00** | optimal, about 0.4 s |
+
+Solve times are wall-clock on a laptop with 4 search workers and vary by machine.
 
 Key findings:
-- **CP-SAT eliminates all C4 (rest) violations** across every scenario — the greedy heuristic has no temporal lookahead and cannot enforce this constraint
-- **Scenario C: perfect workload balance** — CP-SAT achieves sigma=0.00 (every worker assigned exactly 7 shifts), a 100% improvement over greedy
-- **CP-SAT scales well** — 20 workers / 14 days / 3 shifts (840 binary variables) solved to optimality in 271ms
+- **CP-SAT eliminates all C4 (rest) violations** across every scenario. The greedy heuristic has no temporal lookahead and cannot enforce this constraint.
+- **Scenario C: perfect workload balance.** CP-SAT assigns every worker exactly 7 shifts (sigma 0.00), against 0.32 for greedy.
+- **Scenario B: balance gets worse, and that is the honest trade-off.** With 40 percent unavailability, removing the rest violations forces some workers onto fewer shifts. The objective balances only max minus min shifts and also rewards preferences, so sigma rises from 0.49 to 0.76 while every hard constraint holds.
+- **Scenario A is the slowest to prove optimal** despite being the smallest, because many workers are interchangeable and the solver spends its time on symmetric alternatives. Symmetry breaking is the obvious next improvement.
 - **Greedy is fast and coverage-complete** but cannot enforce cross-day rest constraints or achieve global workload balance
 
 ---
@@ -117,3 +122,12 @@ equivalent without auxiliary variables and linearisation tricks.
 - **OR-Tools** (CP-SAT solver)
 - **NumPy / matplotlib** (analysis and visualisation)
 - No external datasets — all scenarios self-generated
+
+## Tests
+
+```bash
+pip install pytest
+pytest tests/ -q
+```
+
+The tests check every hard constraint on the CP-SAT schedules (coverage bounds, availability, night-then-morning rest, rolling weekly cap), that the solver proves optimality, and the scenario C headline numbers.
